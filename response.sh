@@ -4,7 +4,7 @@ usage() {
     echo "response.sh [-c|--count N] [-r|--resouce url] [-b|--bind <localip>] -p|-peer <peer>"
     echo "    defaults:"
     echo "           --count     1"
-    echo "           --resource  1G_file"
+    echo "           --resource  1K_file"
     echo "    peer is mandatory"
     exit 1
 }
@@ -56,33 +56,30 @@ max=1
 avg=1
 let total=count
 while [ $count -gt 0 ]; do
-        start=$(date +%s%N)
-        eval $cmd
-        let count=count-1
-        end=$(date +%s%N)
-        let response=end-start
-        let response=response/1000000
-        echo "$count response: $response"
-        let array[$count]=response
-        if [[ $response -lt $min ]]; 
-        then
-                let min=response
-        fi
-        if [[ $response -gt $max ]];
-        then
-                let max=response
-        fi
-        let avg=avg+response
-        #sleep 50
+    start=$(date +%s%N)
+    eval $cmd
+    let count=count-1
+    end=$(date +%s%N)
+    let response=end-start
+    let response=response/1000000
+    echo "$count response: $response"
+    let array[$count]=response
+    if [[ $response -lt $min ]]; then
+        let min=response
+    fi
+    if [[ $response -gt $max ]]; then
+        let max=response
+    fi
+    let avg=avg+response
 done
 let avg=avg/total
 let count=total
 deviation=0
 while [ $count -gt 0 ]; do
-        let diff=array[count-1]-avg
-        let diff2=diff*diff
-        let deviation=deviation+diff2
-        let count=count-1
+    let diff=array[count-1]-avg
+    let diff2=diff*diff
+    let deviation=deviation+diff2
+    let count=count-1
 done
 let deviation=deviation/total
 echo "response (in ms) min:$min max:$max avg:$avg variance:$deviation"
