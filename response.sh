@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-    echo "response.sh [-c|--count N] [-r|--resouce url] -p|-peer <peer>"
+    echo "response.sh [-c|--count N] [-r|--resouce url] [-b|--bind <localip>] -p|-peer <peer>"
     echo "    defaults:"
     echo "           --count     1"
     echo "           --resource  1G_file"
@@ -11,21 +11,26 @@ usage() {
 
 count=1
 peer=""
-resource="1G_file"
+resource="1K_file"
+localip=""
 while [[ $# > 0 ]] ; do
     key="$1"
     shift
     case $key in
         -c|--count)
-            count=$2
+            count=$1
             shift
             ;;
         -p|--peer)
-            peer=$2
+            peer=$1
             shift
             ;;
         -r|--resource)
-            resource=$2
+            resource=$1
+            shift
+            ;;
+        -b|--bind)
+            localip="--bind-address=$1"
             shift
             ;;
         *)
@@ -38,13 +43,21 @@ if [[ -z "$peer" ]] ; then
     usage
 fi
 
-min=600
+cmd="wget ${localip} http://${pip}/${resource} -q -O /dev/null"
+echo "Working with:"
+echo "  count: $count"
+echo "  peer:  $peer"
+echo "  local: $localip"
+echo "  resource: $resource"
+echo "  cmd:  ${cmd}"
+
+min=$(( (1<<32)-1 ))
 max=1
 avg=1
 let total=count
 while [ $count -gt 0 ]; do
         start=$(date +%s%N)
-        wget http://${pip}/${resource} -q -O /dev/null
+        eval $cmd
         let count=count-1
         end=$(date +%s%N)
         let response=end-start
@@ -72,5 +85,4 @@ while [ $count -gt 0 ]; do
         let count=count-1
 done
 let deviation=deviation/total
-#echo "response min:$min max:$max avg:$avg variance:$deviation" >> response_time.txt
-echo "response min:$min max:$max avg:$avg variance:$deviation"
+echo "response (in ms) min:$min max:$max avg:$avg variance:$deviation"
