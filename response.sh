@@ -11,7 +11,7 @@ usage() {
 
 count=1
 peer=""
-resource="1K_file"
+resource="1B_file"
 localip=""
 while [[ $# > 0 ]] ; do
     key="$1"
