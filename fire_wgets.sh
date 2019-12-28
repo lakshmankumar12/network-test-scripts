@@ -66,6 +66,6 @@ echo "  cmd:  ${cmd}"
 echo "  joblog:  ${joblog}"
 
 echo "Starting parallel job"
-parallel -j${parallel_count} --joblog ${joblog} -N0 wget ${localip} http://${pip}/${resource} -q -O /dev/null ::: $(seq 1 ${count})
+parallel -j${parallel_count} --joblog ${joblog} -N0 wget ${localip} http://${peer}/${resource} -q -O /dev/null ::: $(seq 1 ${count})
 cat ${joblog}
 
