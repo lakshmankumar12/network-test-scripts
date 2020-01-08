@@ -53,7 +53,7 @@ echo "  cmd:  ${cmd}"
 
 min=$(( (1<<32)-1 ))
 max=1
-avg=1
+avg=0
 let total=count
 #compensate for the \r
 echo
@@ -77,12 +77,18 @@ done
 echo
 let avg=avg/total
 let count=total
-deviation=0
+variance=0
 while [ $count -gt 0 ]; do
     let diff=array[count-1]-avg
     let diff2=diff*diff
-    let deviation=deviation+diff2
+    let variance=variance+diff2
     let count=count-1
 done
-let deviation=deviation/total
-echo "response (in ms) min:$min max:$max avg:$avg variance:$deviation"
+if [ $total -gt 1 ] ; then
+    let total_minus_1=total-1
+else
+    let total_minus_1=1
+fi
+let variance=variance/total_minus_1
+std_deviation=$(bc <<< "scale=2; sqrt($variance)")
+echo "response (in ms) min:$min max:$max avg:$avg variance=$variance std_deviation:$std_deviation"
