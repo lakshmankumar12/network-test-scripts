@@ -55,6 +55,8 @@ min=$(( (1<<32)-1 ))
 max=1
 avg=1
 let total=count
+#compensate for the \r
+echo
 while [ $count -gt 0 ]; do
     start=$(date +%s%N)
     eval $cmd
@@ -62,7 +64,7 @@ while [ $count -gt 0 ]; do
     end=$(date +%s%N)
     let response=end-start
     let response=response/1000000
-    echo "$count response: $response"
+    echo -n -e "\r$(expr $total - $count) response: $response"
     let array[$count]=response
     if [[ $response -lt $min ]]; then
         let min=response
@@ -72,6 +74,7 @@ while [ $count -gt 0 ]; do
     fi
     let avg=avg+response
 done
+echo
 let avg=avg/total
 let count=total
 deviation=0
