@@ -64,7 +64,7 @@ while [ $count -gt 0 ]; do
     end=$(date +%s%N)
     let response=end-start
     let response=response/1000000
-    echo -n -e "\r$(expr $total - $count) response: $response"
+    printf "\rcount: %5s response: %10s" $(expr $total - $count) $response
     let array[$count]=response
     if [[ $response -lt $min ]]; then
         let min=response
@@ -91,4 +91,4 @@ else
 fi
 let variance=variance/total_minus_1
 std_deviation=$(bc <<< "scale=2; sqrt($variance)")
-echo "response (in ms) min:$min max:$max avg:$avg variance=$variance std_deviation:$std_deviation"
+printf "response (in ms)\n min:%6s max:%6s avg:%5s std_deviation:%9.3f\n" $min $min $avg $std_deviation
