@@ -91,4 +91,4 @@ else
 fi
 let variance=variance/total_minus_1
 std_deviation=$(bc <<< "scale=2; sqrt($variance)")
-printf "response (in ms)\n min:%6s max:%6s avg:%5s std_deviation:%9.3f\n" $min $min $avg $std_deviation
+printf "response (in ms)\n min: %-12s max: %-12s avg: %-12s sd: %-9.3f\n" $min $max $avg $std_deviation
