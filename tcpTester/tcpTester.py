@@ -5,6 +5,25 @@ A TCP swiss army knife is the making.
 
 Iptables reference:
 iptables -A OUTPUT -t filter -p tcp --tcp-flags RST RST -s ${local_ip} -m comment --comment "get-tcp-scapy-working" -j DROP
+
+*  Kernel runs TCP. So any tool that wants to do TCP stuff in user-space,
+   should work with an IP, that kernel thinks is not its own or if the tool
+   wants to use a local-ip, it has to work in concert with kernel.
+*  This tool uses the former approach - so pick a free
+   IP in the same subnet as a local ip and have the tool use that
+   (and external entities interact with this IP). Lets refer to
+   this second-IP as aux-ip.
+*  Eg. If your machine is 192.168.1.2/24 over eth0, you need to pick a
+   free IP in the 192.168.1.*/24 subnet, and use that. Say 192.168.1.102
+   is unused in your network, you can pick to use that.
+*  This IP will not be locally assigned to any ifc, but we will
+   put in a proxy_arp for this ip on eth0, and create a tun
+   interface. This will attract traffic from other machines
+   into this machine for this aux-ip.
+*  We will add a route to this aux-ip pointing to the tun
+   interface.
+*  Pkts from the tool, with aux-ip as src, will come out of the
+   tun ifc. They will go out normally.
 """
 
 import logging
@@ -16,6 +35,7 @@ import argparse
 import threading
 import queue
 import tty, termios
+import select
 
 def sanitise_args(parser, options):
 
@@ -339,7 +359,7 @@ class Connection():
         return connection
 
     def pkt_printer(self, pkt):
-        print ("got a pkt with flags:{} peer-seq:{} peer-ack:{}".format(pkt[TCP].flags,
+        print ("got a pkt with flags:{} peer-seq:{:u} peer-ack:{:u}".format(pkt[TCP].flags,
                                         pkt[TCP].seq - self.peerseqstart,
                                         pkt[TCP].ack - self.seqstart))
 
