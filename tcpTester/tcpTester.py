@@ -119,7 +119,7 @@ class Manager():
         #start the sniffer
         self.keep_sniffing = True
         self.pktQueue=queue.Queue()
-        self.filterStr="dst {} and tcp and dst port {}".format(conn.src_ip,conn.src_port)
+        self.filterStr="dst {} and tcp and src port {}".format(conn.src_ip,conn.src_port)
         self.ifc=conn.interface
         self.snifferthr = threading.Thread(target=self.background_sniffer_thread)
         self.snifferthr.start()
@@ -175,6 +175,7 @@ class Manager():
             ?        -> show this help
             f        -> send fin
             d        -> send data
+            D        -> send 100 data pkts
             R        -> send Reset
             s        -> print connection state details
             h        -> toggle half-close flag (whether to respond to fin or not with a fin)
@@ -196,6 +197,9 @@ class Manager():
         elif char == 'd':
             print ("sending data")
             self.connections[0].send_data()
+        elif char == 'D':
+            print ("flooding data")
+            self.connections[0].flood_data()
         elif char == 'R':
             print ("sending reset")
             self.connections[0].send_tcp_reset()
@@ -359,7 +363,7 @@ class Connection():
         return connection
 
     def pkt_printer(self, pkt):
-        print ("got a pkt with flags:{} peer-seq:{:u} peer-ack:{:u}".format(pkt[TCP].flags,
+        print ("got a pkt with flags:{} peer-seq:{:d} peer-ack:{:d}".format(pkt[TCP].flags,
                                         pkt[TCP].seq - self.peerseqstart,
                                         pkt[TCP].ack - self.seqstart))
 
@@ -398,8 +402,11 @@ class Connection():
         src_port = self.src_port
         dst_port = self.dst_port
         seq = self.myseq
-        ack = self.peerseq
-        self.peerseqacked = ack
+        if self.rwin:
+            ack = self.peerseq
+            self.peerseqacked = ack
+        else:
+            ack = self.peerseqacked
         rwin = self.rwin
         tcp_options = self.tcp_options
         timestamps = self.timestamps
@@ -425,7 +432,7 @@ class Connection():
     def send_tcp_reset(self):
         print("Sending TCP Reset")
         rst = self.packet_constructor('R')
-        send(self.ip/rst, verbose=0)
+        send(self.ip/rst, verbose=0, iface=self.ifc)
         self.state.update(TcpState.CLOSED)
         self.conn_dead = True
 
@@ -436,12 +443,20 @@ class Connection():
         syn = self.packet_constructor('S')
 
         # send SYN
-        print ("sending syn")
+        print ("sending syn on %s"%self.interface)
         synPacket=self.ip/syn
-        send(synPacket, verbose=0)
+        send(synPacket, verbose=0, iface=self.interface)
         self.state.update(TcpState.SYN_SENT)
 
-        pkt = mgr.getNextPacket()
+        synack_try = 0
+        while synack_try < 3:
+            pkt = mgr.getNextPacket()
+            if pkt:
+                break
+            else:
+                print ("No resp to syn.. sending once more: %d"%synack_try)
+                send(synPacket, verbose=1, iface=self.interface)
+            synack_try += 1
         if not pkt:
             mgr.abort("no pkt after syn")
 
@@ -485,6 +500,10 @@ class Connection():
             data="happy"
         data_pkt = self.packet_constructor('A',load_data=data)
         send((self.ip/data_pkt), verbose=0)
+
+    def flood_data(self):
+        for i in range(100):
+            self.send_data();
 
     def send_ack(self, force=False):
         if force or not self.supress_acks:
