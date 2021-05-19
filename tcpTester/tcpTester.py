@@ -119,7 +119,7 @@ class Manager():
         #start the sniffer
         self.keep_sniffing = True
         self.pktQueue=queue.Queue()
-        self.filterStr="dst {} and tcp and src port {}".format(conn.src_ip,conn.src_port)
+        self.filterStr="host {} and tcp and port {}".format(conn.src_ip,conn.src_port)
         self.ifc=conn.interface
         self.snifferthr = threading.Thread(target=self.background_sniffer_thread)
         self.snifferthr.start()
@@ -183,6 +183,7 @@ class Manager():
             a        -> send a ack now
             A        -> toggle supress-ack
             j        -> toggle jumbo-data flag
+            S        -> suppress per-pkt logging
         '''
         print (self.helpString)
 
@@ -227,6 +228,9 @@ class Manager():
         elif char == 'j':
             self.connections[0].send_jumbo_data = 1 - self.connections[0].send_jumbo_data
             print("Send Jumbo Data is now %d"%self.connections[0].send_jumbo_data)
+        elif char == 'S':
+            self.connections[0].suppressPktLogging = 1 - self.connections[0].suppressPktLogging
+            print("Suppress per-pkt logging is now %d"%self.connections[0].suppressPktLogging)
 
 class TcpState:
     CLOSED = 0
@@ -303,6 +307,8 @@ class Connection():
 
         self.orig_rwin = args.rwin
         self.rwin = args.rwin
+        self.flooding = 0
+        self.suppressPktLogging = 0
         if args.isn == -1:
             self.myseq = random.getrandbits(32)
         else:
@@ -360,6 +366,7 @@ class Connection():
         connection += "Half-close flag:     {}\n".format(self.maintain_half_close)
         connection += "Supress-Ack flag:    {}\n".format(self.supress_acks)
         connection += "Send Jumbo Data:     {}\n".format(self.send_jumbo_data)
+        connection += "Suppress Logging:    {}\n".format(self.suppressPktLogging)
         return connection
 
     def pkt_printer(self, pkt):
@@ -393,7 +400,8 @@ class Connection():
         if peer_pkt[TCP].ack > self.peer_acked:
             #some new ack.
             self.peer_acked = peer_pkt[TCP].ack
-            print("Got peer-ack to {}. My seq: {}".format(self.peer_acked - self.seqstart, self.myseq-self.seqstart))
+            if not self.flooding and not self.suppressPktLogging:
+                print("Got peer-ack to {}. My seq: {}".format(self.peer_acked - self.seqstart, self.myseq-self.seqstart))
 
 
     def packet_constructor(self, packet_flags, load_data=""):
@@ -425,14 +433,15 @@ class Connection():
                 packet = packet/Raw(load=load_data)
                 oldseq = self.myseq - self.seqstart
                 self.myseq += len(packet[Raw].load)
-                print ("Moving my seq from {} to {}".format(oldseq, self.myseq - self.seqstart))
+                if not self.flooding and not self.suppressPktLogging:
+                    print ("Moving my seq from {} to {}".format(oldseq, self.myseq - self.seqstart))
 
         return packet
 
     def send_tcp_reset(self):
         print("Sending TCP Reset")
         rst = self.packet_constructor('R')
-        send(self.ip/rst, verbose=0, iface=self.ifc)
+        send(self.ip/rst, verbose=0, iface=self.interface)
         self.state.update(TcpState.CLOSED)
         self.conn_dead = True
 
@@ -502,8 +511,11 @@ class Connection():
         send((self.ip/data_pkt), verbose=0)
 
     def flood_data(self):
-        for i in range(100):
+        self.flooding = 1
+        for i in range(1000):
             self.send_data();
+        self.flooding = 0
+        print ("Flooding with 1000 pkts. myseq:{}",self.myseq)
 
     def send_ack(self, force=False):
         if force or not self.supress_acks:
@@ -577,7 +589,8 @@ class Connection():
 
     def process_a_packet(self, pkt):
 
-        self.pkt_printer(pkt)
+        if not self.flooding and not self.suppressPktLogging:
+            self.pkt_printer(pkt)
 
         if 'R' in pkt[TCP].flags:
             print("Received a peer reset")
