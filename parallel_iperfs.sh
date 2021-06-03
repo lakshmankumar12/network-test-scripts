@@ -10,9 +10,9 @@ prot="tcp"
 listfile=""
 
 function usage() {
-  echo "$0 (--server|--client) [--rate <rate:as-is-to-iperf-client,eg:10M>] [--parallel <n:as-is-Parg,eg:3] [--udp|--tcp(default)] [--listfile <file>]"
+  echo "$0 (--server|--client) [--count <n,def:5>] [--rate <rate:as-is-to-iperf-client,eg:10M>] [--parallel <n:as-is-Parg,eg:3] [--udp|--tcp(default)] [--listfile <file>]"
   echo "   --listfile should have values in this fashion per-line:"
-  echo "            port=<port> rate=<rate> prot=tcp|udp parallel=1"
+  echo "            role=server|client port=<port> rate=<rate> prot=tcp|udp parallel=1"
   exit 1
 }
 
@@ -47,6 +47,10 @@ while [[ $# > 0  ]] ; do
       listfile=$1
       shift 1
       ;;
+  --count)
+      count=$1
+      shift 1
+      ;;
     *)
       echo "Not recognized option:$key"
       usage
@@ -65,6 +69,7 @@ if [ -n "$listfile" ] ; then
     port=0
     rate=0
     prot="tcp"
+    role="client"
     parallel=1
     protarg=""
     eval $line
@@ -72,21 +77,25 @@ if [ -n "$listfile" ] ; then
       echo "port:$port is 0 in line:$line"
       exit 1
     fi
-    if [ $rate == 0 ] ; then
+    if [ "$role" != "server" -a $rate == 0 ] ; then
       echo "rate:$rate is 0 in line:$line"
       exit 1
     fi
     if [ "$prot" = "udp" ] ; then
       protarg="-u"
     fi
-    cmd="./iperf3 -B ${mip} -p ${port} -c ${pip} -i 1 -t 3600 -b${rate} -P${parallel} --logfile ${fileprefix}_${i}_client ${protarg} &"
+    if [[ "$role" = "server" ]] ; then
+      cmd="./iperf3 -s -B ${mip} -p ${port} --logfile ${fileprefix}_${i}_server &"
+    else
+      cmd="./iperf3 -B ${mip} -p ${port} -c ${pip} -i 1 -t 3600 -b${rate} -P${parallel} --logfile ${fileprefix}_${i}_client ${protarg} &"
+    fi
     echo "doing ${cmd}"
     eval $cmd
     if [ $? -ne 0 ] ; then
       echo "Not successful.."
       exit 1
     fi
-  done < $listfile
+    done < <(grep -v '^[[:space:]]*#' $listfile)
 else
   protarg=""
   if [ $prot = "udp" ] ; then
