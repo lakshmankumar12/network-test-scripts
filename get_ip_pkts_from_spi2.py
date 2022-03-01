@@ -15,25 +15,14 @@ def get_args():
     return options
 
 def main(options):
-    inpkts=rdpcap(options.infile)
-    outlist=[]
-
-    first_ip_pkt_found = False
-    for pkt in inpkts:
-        b=bytes(pkt)
-        if b[20] == 0x45:
-            opkt=IP(b[20:])
-            opkt.time=pkt.time
-            first_ip_pkt_found=True
-        else:
-            continue
-        if first_ip_pkt_found:
-            outlist.append(opkt)
-
-    os.unlink(options.outfile)
-    for pkt in outlist:
-         wrpcap(options.outfile, pkt, append=True)
-
+    outfile = PcapWriter(options.outfile);
+    with PcapReader(options.infile) as pcap_reader:
+        for pkt in pcap_reader:
+            b=bytes(pkt)
+            if b[20] == 0x45:
+                opkt=IP(b[20:])
+                opkt.time=pkt.time
+                outfile.write(opkt)
 
 options = get_args()
 main(options)

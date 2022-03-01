@@ -58,6 +58,9 @@ while [[ $# > 0  ]] ; do
   esac
 done
 
+origmip=${mip}
+origpip=${pip}
+
 if [ -n "$listfile" ] ; then
   if [ ! -f "$listfile" ] ; then
     echo "Couldn't locate $listfile"
@@ -72,7 +75,14 @@ if [ -n "$listfile" ] ; then
     role="client"
     parallel=1
     protarg=""
+    reversearg=""
+    mip=${origmip}
+    pip=${origpip}
     eval $line
+    if [[ $? -ne 0 ]] ; then
+        echo "eval of line:$line failed"
+        exit 1
+    fi
     if [ $port == 0 ] ; then
       echo "port:$port is 0 in line:$line"
       exit 1
@@ -84,10 +94,13 @@ if [ -n "$listfile" ] ; then
     if [ "$prot" = "udp" ] ; then
       protarg="-u"
     fi
+    if [ "$dir" = "reverse" ] ; then
+      reversearg="--reverse"
+    fi
     if [[ "$role" = "server" ]] ; then
       cmd="./iperf3 -s -B ${mip} -p ${port} --logfile ${fileprefix}_${i}_server &"
     else
-      cmd="./iperf3 -B ${mip} -p ${port} -c ${pip} -i 1 -t 3600 -b${rate} -P${parallel} --logfile ${fileprefix}_${i}_client ${protarg} &"
+      cmd="./iperf3 -B ${mip} -p ${port} -c ${pip} -i 1 -t 3600 -b${rate} -P${parallel} --logfile ${fileprefix}_${i}_client ${protarg} ${reversearg} &"
     fi
     echo "doing ${cmd}"
     eval $cmd
