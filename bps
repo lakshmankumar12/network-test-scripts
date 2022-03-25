@@ -1,0 +1,80 @@
+#!/bin/bash
+
+usage() {
+    echo "$0 [options] [ifcs]"
+    echo " atleast one ifc should be provided"
+    echo " options:"
+    echo "  -n|--numiter <num-samples>    default: forever"
+    echo "  -t|--time    <duration-between-samples>  default: 1s"
+    exit 1
+}
+
+options=$(getopt -o n:t:h -l numiter:,time:,help -n "$0" -- "$@")
+if [ $? -ne 0 ] ; then
+    echo "Incorrect options provided"
+    usage
+fi
+numiter=0
+time=1
+eval set -- "$options"
+while true; do
+    opt="$1"
+    shift
+    case "$opt" in
+    -n|--numiter)
+        numiter=$1
+        shift
+        ;;
+    -t|--time)
+        time=$1
+        shift
+        ;;
+    -h|--help)
+        usage
+        ;;
+    --)
+        break
+        ;;
+    esac
+done
+
+ifcs="$@"
+if [ -z "$ifcs" ] ; then
+    usage
+fi
+declare -A prev_rx_bytes
+declare -A prev_rx_pkts
+declare -A prev_tx_bytes
+declare -A prev_tx_pkts
+#collect their start values
+for i in ${ifcs[@]} ; do
+    prev_rx_bytes[$i]=$(cat /sys/class/net/$i/statistics/rx_bytes)
+    prev_rx_pkts[$i]=$(cat /sys/class/net/$i/statistics/rx_packets)
+    prev_tx_bytes[$i]=$(cat /sys/class/net/$i/statistics/tx_bytes)
+    prev_tx_pkts[$i]=$(cat /sys/class/net/$i/statistics/tx_packets)
+done
+todo=numiter
+while [[ $numiter -eq 0 || $todo -gt 0 ]] ; do
+    sleep $time
+    echo -n "Time: " ; date
+    for i in ${ifcs[@]} ; do
+        this_rx_bytes=$(cat /sys/class/net/$i/statistics/rx_bytes)
+        this_rx_pkts=$(cat /sys/class/net/$i/statistics/rx_packets)
+        this_tx_bytes=$(cat /sys/class/net/$i/statistics/tx_bytes)
+        this_tx_pkts=$(cat /sys/class/net/$i/statistics/tx_packets)
+        prevv_rx_bytes=${prev_rx_bytes[$i]}
+        prevv_rx_pkts=${prev_rx_pkts[$i]}
+        prevv_tx_bytes=${prev_tx_bytes[$i]}
+        prevv_tx_pkts=${prev_tx_pkts[$i]}
+        diff_rx_bytes="$(((this_rx_bytes - prevv_rx_bytes)*8))e-6"
+        diff_rx_pkts="$((this_rx_pkts - prevv_rx_pkts))e-3"
+        diff_tx_bytes="$(((this_tx_bytes - prevv_tx_bytes)*8))e-6"
+        diff_tx_pkts="$((this_tx_pkts - prevv_tx_pkts))e-3"
+        prev_rx_bytes[$i]=${this_rx_bytes}
+        prev_rx_pkts[$i]=${this_rx_pkts}
+        prev_tx_bytes[$i]=${this_tx_bytes}
+        prev_tx_pkts[$i]=${this_tx_pkts}
+        printf "%15s:  rx: %10.2lf mbps( %10.2lf kpps) tx: %10.2lf mbps( %10.2lf kpps)\n" $i $diff_rx_bytes $diff_rx_pkts $diff_tx_bytes $diff_tx_pkts
+    done
+    echo "---------"
+done
