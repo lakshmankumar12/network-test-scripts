@@ -5,7 +5,7 @@ usage() {
     echo " atleast one ifc should be provided"
     echo " options:"
     echo "  -n|--numiter <num-samples>    default: forever"
-    echo "  -t|--time    <duration-between-samples>  default: 1s"
+    echo "  -t|--time    <duration-between-samples>  default: 2s"
     exit 1
 }
 
@@ -15,7 +15,7 @@ if [ $? -ne 0 ] ; then
     usage
 fi
 numiter=0
-time=1
+time=2
 eval set -- "$options"
 while true; do
     opt="$1"
