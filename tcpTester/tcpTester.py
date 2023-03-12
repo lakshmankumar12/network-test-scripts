@@ -3,9 +3,6 @@
 """
 A TCP swiss army knife is the making.
 
-Iptables reference:
-iptables -A OUTPUT -t filter -p tcp --tcp-flags RST RST -s ${local_ip} -m comment --comment "get-tcp-scapy-working" -j DROP
-
 *  Kernel runs TCP. So any tool that wants to do TCP stuff in user-space,
    should work with an IP, that kernel thinks is not its own or if the tool
    wants to use a local-ip, it has to work in concert with kernel.
@@ -24,6 +21,26 @@ iptables -A OUTPUT -t filter -p tcp --tcp-flags RST RST -s ${local_ip} -m commen
    interface.
 *  Pkts from the tool, with aux-ip as src, will come out of the
    tun ifc. They will go out normally.
+
+devname=mytunifc
+mode=tun
+sudo ip tuntap add dev ${devname} mode ${mode}
+sudo ip link set ${devname} up
+ip=192.168.1.102
+proxy_ifc=enp1s0
+sudo ip neigh add proxy ${ip} dev ${proxy_ifc}
+sudo ip route replace ${ip}/32 dev ${devname}
+
+* We should also have a process listening on the tun-ifc for it to be UP
+  The following py snippet is good to go
+sudo python3
+from tuntap import TunTap
+t = TunTap(nic_type="Tun",nic_name="mytunifc")
+
+
+Iptables reference:
+iptables -A OUTPUT -t filter -p tcp --tcp-flags RST RST -s ${local_ip} -m comment --comment "get-tcp-scapy-working" -j DROP
+
 """
 
 import logging
