@@ -66,10 +66,10 @@ while [[ $numiter -eq 0 || $todo -gt 0 ]] ; do
         prevv_rx_pkts=${prev_rx_pkts[$i]}
         prevv_tx_bytes=${prev_tx_bytes[$i]}
         prevv_tx_pkts=${prev_tx_pkts[$i]}
-        diff_rx_bytes="$(((this_rx_bytes - prevv_rx_bytes)*8))e-6"
-        diff_rx_pkts="$((this_rx_pkts - prevv_rx_pkts))e-3"
-        diff_tx_bytes="$(((this_tx_bytes - prevv_tx_bytes)*8))e-6"
-        diff_tx_pkts="$((this_tx_pkts - prevv_tx_pkts))e-3"
+        diff_rx_bytes="$((((this_rx_bytes - prevv_rx_bytes)*8)/$time))e-6"
+        diff_rx_pkts="$(((this_rx_pkts - prevv_rx_pkts)/$time))e-3"
+        diff_tx_bytes="$((((this_tx_bytes - prevv_tx_bytes)*8)/$time))e-6"
+        diff_tx_pkts="$(((this_tx_pkts - prevv_tx_pkts)/$time))e-3"
         prev_rx_bytes[$i]=${this_rx_bytes}
         prev_rx_pkts[$i]=${this_rx_pkts}
         prev_tx_bytes[$i]=${this_tx_bytes}
